@@ -31,23 +31,30 @@ class UserRepository:
 
     async def update_user(self, wallet_id: str, username: str = None, aptos_wallet: str = None):
         update_data = {}
-        if username is not None:
-            update_data["username"] = username
-        if aptos_wallet is not None:
-            update_data["aptos_wallet"] = aptos_wallet
-            
+
+        if username and username.strip():
+            update_data["username"] = username.strip()
+        if aptos_wallet and aptos_wallet.strip():
+            update_data["aptos_wallet"] = aptos_wallet.strip()
+
         if not update_data:
+            # Không có dữ liệu nào để cập nhật
             return None
-            
-        res = (
-            await self.supabase.table(self.table)
-            .update(update_data)
-            .eq("wallet_id", wallet_id)
-            .execute()
-        )
-        if res.data and len(res.data) > 0:
-            return User(**res.data[0])
-        return None
+
+        try:
+            res = (
+                await self.supabase.table(self.table)
+                .update(update_data)
+                .eq("wallet_id", wallet_id)
+                .execute()
+            )
+            if res.data and len(res.data) > 0:
+                return User(**res.data[0])
+            return None
+        except Exception as e:
+            print(f"Update user error: {e}")
+            return None
+
 
     async def update_username(self, wallet_id: str, username: str):
         return await self.update_user(wallet_id, username=username)

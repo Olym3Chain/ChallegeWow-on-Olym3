@@ -5,7 +5,7 @@ QUESTION_CONFIG = {
         "quantity": 5,
         "time_per_question": 15,
         "score": 50,
-        "speed_bonus_enabled": False,
+        "speed_bonus_enabled": True,
         "max_speed_bonus": 0,
     },
     QUESTION_DIFFICULTY.MEDIUM: {

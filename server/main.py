@@ -51,8 +51,8 @@ app = FastAPI(title="Challenge Wave API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:6789",
-        "http://127.0.0.1:6789",
+        "http://localhost:2268",
+        "http://127.0.0.1:2268",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -117,7 +117,7 @@ async def lifespan(app: FastAPI):
 app.router.lifespan_context = lifespan
 
 # -------------------- Uvicorn Runner --------------------
-PORT = int(os.getenv("PORT") or 3366)
+PORT = int(os.getenv("PORT") or 2269)
 HOST = "127.0.0.1"
 
 if __name__ == "__main__":
