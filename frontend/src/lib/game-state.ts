@@ -27,6 +27,7 @@ interface GameState {
   questionCountdown: number;
   hasAnswered: boolean;
   selectedAnswer: string | null;
+  autoStartCountdown: number;
 
   // Question Result State
   questionResult: {
@@ -91,6 +92,7 @@ interface GameState {
   setQuestionResult: (result: any) => void;
   setGameResults: (results: any[]) => void;
   setWinnerWallet: (wallet: string | null) => void;
+  setAutoStartCountdown: (countdown: number) => void;
 
   // ✅ NEW: Tie-break Actions
   setIsTieBreakActive: (active: boolean) => void;
@@ -128,6 +130,7 @@ export const useGameState = create<GameState>((set, get) => ({
   questionCountdown: 0,
   hasAnswered: false,
   selectedAnswer: null,
+  autoStartCountdown: 0,
 
   // Question Result State
   questionResult: null,
@@ -192,6 +195,7 @@ export const useGameState = create<GameState>((set, get) => ({
   setQuestionResult: (result) => set({ questionResult: result }),
   setGameResults: (results) => set({ gameResults: results }),
   setWinnerWallet: (wallet) => set({ winnerWallet: wallet }),
+  setAutoStartCountdown: (countdown: number) => set({ autoStartCountdown: countdown }),
 
   // ✅ NEW: Tie-break Actions
   setIsTieBreakActive: (active) => set({ isTieBreakActive: active }),
@@ -238,3 +242,4 @@ export const useGameState = create<GameState>((set, get) => ({
     });
   },
 }));
+

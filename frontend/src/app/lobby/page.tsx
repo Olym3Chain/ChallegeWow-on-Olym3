@@ -30,11 +30,11 @@ import {
   fetchCurrentRoom,
 } from "@/lib/api";
 
-import { useAccount } from "wagmi";
 import ConnectWalletModal from "@/components/connect-wallet-modal";
 import { GameStatus } from "@/types/GameStatus";
 import { RECONNECT_WS } from "@/lib/constants";
 import { useJoinRoomMutation } from "@/hooks/use-join-mutation";
+import { usePetraWallet } from "@/hooks/use-petra-wallet";
 
 export default function Lobby() {
   const router = useRouter();
@@ -45,7 +45,6 @@ export default function Lobby() {
   const [showUsernameModal, setShowUsernameModal] = useState(false);
 
   const { currentUser, setCurrentUser } = useGameState();
-  const { isConnected, address } = useAccount();
 
   const [onlineStats, setOnlineStats] = useState({
     activeRooms: 0,
@@ -78,7 +77,7 @@ export default function Lobby() {
   }, [currentUser]);
 
   const requireWallet = (callback: () => void) => {
-    if (!isConnected) {
+    if (!currentUser?.walletId) {
       setPendingAction(() => callback);
       setShowConnectModal(true);
     } else {
@@ -87,16 +86,16 @@ export default function Lobby() {
   };
 
   useEffect(() => {
-    if (isConnected && pendingAction) {
+    if (currentUser?.walletId && pendingAction) {
       pendingAction();
       setPendingAction(null);
       setShowConnectModal(false);
     }
-  }, [isConnected, pendingAction]);
+  }, [currentUser?.walletId, pendingAction]);
 
   useEffect(() => {
-    if (isConnected && address) {
-      fetchUserByWallet(address).then((user) => {
+    if (currentUser?.walletId && currentUser?.walletId) {
+      fetchUserByWallet(currentUser?.walletId).then((user) => {
         setCurrentUser(user);
         if (
           !user ||
@@ -108,7 +107,7 @@ export default function Lobby() {
         }
       });
     }
-  }, [isConnected, address, setCurrentUser]);
+  }, [currentUser?.walletId, currentUser?.walletId, setCurrentUser]);
 
   const {
     data: rooms = [],
@@ -197,7 +196,7 @@ export default function Lobby() {
   }, [isWsConnected]);
 
   const handleCreateRoom = () => {
-    if (!isConnected) {
+    if (!currentUser?.walletId) {
       setShowConnectModal(true);
       return;
     }
@@ -254,9 +253,9 @@ export default function Lobby() {
   };
 
   const handleSaveUsername = async (username: string) => {
-    if (!address) return;
-    await updateUser(address, username);
-    const updatedUser = await fetchUserByWallet(address);
+    if (!currentUser?.walletId) return;
+    await updateUser(currentUser?.walletId, username);
+    const updatedUser = await fetchUserByWallet(currentUser.walletId);
     setCurrentUser(updatedUser);
     setShowUsernameModal(false);
   };
@@ -666,3 +665,4 @@ export default function Lobby() {
     </div>
   );
 }
+

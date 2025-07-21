@@ -210,11 +210,17 @@ export default function Landing() {
             <Button
               variant="outline"
               className="border-2 border-neon-purple text-neon-purple hover:bg-neon-purple hover:text-white px-8 py-4 rounded-lg text-xl font-semibold transition-all duration-300"
-              onClick={() => router.push("/setup-network")}
+              onClick={() => {
+                const element = document.getElementById("network");
+                if (element) {
+                  element.scrollIntoView({ behavior: "smooth" });
+                }
+              }}
             >
               <Network className="w-6 h-6 mr-2" />
               Setup Network
             </Button>
+
           </motion.div>
 
           {/* Enhanced Stats */}
@@ -395,7 +401,7 @@ export default function Landing() {
             Whitepaper
           </a>
           <a
-            href="https://github.com/Olym3Chain/Challenge-Wow"
+            href="https://github.com/NguyenHoangAnh411/ChallengeWow_Aptos"
             target="_blank"
             rel="noopener noreferrer"
             className="hover:text-neon-blue transition-colors flex items-center"

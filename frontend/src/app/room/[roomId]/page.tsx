@@ -46,6 +46,7 @@ import {
   PLAYER_DISCONNECTED_TYPE,
   GAME_SYNC_TYPE,
   PLAYER_RECONNECTED_TYPE,
+  AUTO_START_TRIGGERED_TYPE,
 } from "@/lib/constants";
 import { DEFAULT_GAME_SETTINGS } from "@/app/config/GameSettings";
 import { useAccount } from "wagmi";
@@ -99,6 +100,8 @@ export default function ChallengeRoom({
     setCurrentPlayer,
     readyCount,
     setReadyCount,
+    autoStartCountdown,
+    setAutoStartCountdown,
   } = useGameState();
 
   const [chatMessages, setChatMessages] = useState<ChatMsg[]>([]);
@@ -107,6 +110,7 @@ export default function ChallengeRoom({
   const [startAt, setStartAt] = useState<number | null>(null);
   const [isLoadingRoom, setIsLoadingRoom] = useState(true);
   const [showConfetti, setShowConfetti] = useState(false);
+
 
   if (!roomId) {
     return (
@@ -138,8 +142,6 @@ export default function ChallengeRoom({
   });
 
   function handleWebSocketMessage(data: any) {
-    console.log("[WS] Received message:", data);
-
     switch (data.type) {
       case GAME_STARTED_TYPE:
         handleGameStarted(data.payload);
@@ -186,10 +188,93 @@ export default function ChallengeRoom({
       case HOST_TRANSFER_TYPE:
         handleHostTransfer(data.payload);
         break;
+      case AUTO_START_TRIGGERED_TYPE:
+        handleAutoStartTriggered(data.payload);
+        break;
+      case "auto_countdown_started":
+        handleAutoCountdownStarted(data.payload);
+        break;
+      case "auto_countdown_cancelled":
+        handleAutoCountdownCancelled(data.payload);
+        break;
       default:
         console.log("[WS] Unknown message type:", data.type);
     }
   }
+
+  function handleAutoStartTriggered(payload: any) {
+    console.log("[AUTO-START] Auto start triggered:", payload);
+    setTotalQuestions(payload.totalQuestions);
+    setStartAt(payload.startAt);
+    setAutoStartCountdown(payload.countdownDuration);
+
+
+    const sysMsg: ChatMsg = {
+      sender: {
+        id: Date.now().toString(),
+        walletId: "system",
+        username: "System",
+        timestamp: new Date(),
+        isSystem: true,
+      },
+      message: `� ${payload.message}`,
+    };
+
+    setChatMessages((prev) => [...prev, sysMsg]);
+  }
+
+  function handleAutoCountdownStarted(payload: any) {
+    console.log("[AUTO-START] Auto countdown started:", payload);
+    setAutoStartCountdown(payload.countdownDuration);
+
+    const sysMsg: ChatMsg = {
+      sender: {
+        id: Date.now().toString(),
+        walletId: "system",
+        username: "System",
+        timestamp: new Date(),
+        isSystem: true,
+      },
+      message: `⏰ Auto-start countdown beginning in ${payload.countdownDuration} seconds...`,
+    };
+
+    setChatMessages((prev) => [...prev, sysMsg]);
+  }
+
+  function handleAutoCountdownCancelled(payload: any) {
+    console.log("[AUTO-START] Auto countdown cancelled:", payload);
+    setAutoStartCountdown(0);
+
+    const sysMsg: ChatMsg = {
+      sender: {
+        id: Date.now().toString(),
+        walletId: "system",
+        username: "System",
+        timestamp: new Date(),
+        isSystem: true,
+      },
+      message: `❌ ${payload.message}`,
+    };
+
+    setChatMessages((prev) => [...prev, sysMsg]);
+  }
+
+  // Auto-start countdown timer
+  useEffect(() => {
+    if (autoStartCountdown > 0) {
+      const timer = setInterval(() => {
+        const newCountdown = autoStartCountdown - 1;
+        if (newCountdown <= 0) {
+          clearInterval(timer);
+          setAutoStartCountdown(0);
+        } else {
+          setAutoStartCountdown(newCountdown);
+        }
+      }, 1000);
+
+      return () => clearInterval(timer);
+    }
+  }, [autoStartCountdown, setAutoStartCountdown]);
 
   function handleGameStarted(payload: any) {
     console.log("[GAME] Game started:", payload);
@@ -884,6 +969,7 @@ export default function ChallengeRoom({
     }
   }, [gameStatus, winnerWallet]);
 
+
   // Handle leave room
   const handleLeaveRoom = useCallback(async () => {
     try {
@@ -1070,6 +1156,16 @@ export default function ChallengeRoom({
                 </div>
               )}
 
+              {/* Auto-Start Countdown Indicator */}
+              {autoStartCountdown > 0 && (
+                <div className="flex items-center space-x-2 px-4 py-2 glass-morphism rounded-lg border border-green-400/30 animate-pulse">
+                  <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+                  <span className="font-orbitron font-bold text-green-400">
+                    Auto-Start: {autoStartCountdown}s
+                  </span>
+                </div>
+              )}
+
               {gameStatus === GameStatus.IN_PROGRESS && (
                 <>
                   <div className="flex items-center space-x-2 px-4 py-2 glass-morphism rounded-lg">
@@ -1124,3 +1220,4 @@ export default function ChallengeRoom({
     </div>
   );
 }
+

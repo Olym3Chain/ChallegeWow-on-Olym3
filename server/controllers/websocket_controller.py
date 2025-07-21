@@ -434,87 +434,8 @@ class WebSocketController:
             })
             return
 
-        easy_count = room.easy_questions if room.easy_questions is not None else QUESTION_CONFIG[QUESTION_DIFFICULTY.EASY]["quantity"]
-        medium_count = room.medium_questions if room.medium_questions is not None else QUESTION_CONFIG[QUESTION_DIFFICULTY.MEDIUM]["quantity"]
-        hard_count = room.hard_questions if room.hard_questions is not None else QUESTION_CONFIG[QUESTION_DIFFICULTY.HARD]["quantity"]
-
-        # ✅ 4. Lấy danh sách câu hỏi và shuffle
-        easy_qs = await self.question_service.get_random_questions_by_difficulty(QUESTION_DIFFICULTY.EASY, easy_count)
-        medium_qs = await self.question_service.get_random_questions_by_difficulty(QUESTION_DIFFICULTY.MEDIUM, medium_count)
-        hard_qs = await self.question_service.get_random_questions_by_difficulty(QUESTION_DIFFICULTY.HARD, hard_count)
-
-        questions = [*easy_qs, *medium_qs, *hard_qs]
-        random.shuffle(questions)
-
-        if not questions:
-            await send_json_safe(websocket, {"type": "error", "message": "No questions found."})
-            return
-            
-        # Nếu không đủ câu hỏi, điều chỉnh total_questions
-        if len(questions) < (easy_count + medium_count + hard_count):
-            pass
-            
-        # Đảm bảo có đủ câu hỏi bằng cách lặp lại nếu cần
-        target_questions = easy_count + medium_count + hard_count
-        if len(questions) < target_questions:
-            # Lặp lại câu hỏi để đạt được số lượng mong muốn
-            repeated_questions = []
-            while len(repeated_questions) < target_questions:
-                repeated_questions.extend(questions[:target_questions - len(repeated_questions)])
-            questions = repeated_questions[:target_questions]
-
-        # ✅ 5. Chuẩn bị dữ liệu câu hỏi cho client (loại bỏ đáp án đúng)
-        def prepare_question_for_client(question):
-            """Chuẩn bị câu hỏi để gửi cho client, loại bỏ correct_answer"""
-            question_dict = question.dict()
-            options = question_dict.get("options", [])
-            if options:
-                shuffled_options = options.copy()
-                random.shuffle(shuffled_options)
-                question_dict["options"] = shuffled_options
-                # Gán lại options đã shuffle vào object gốc để lưu vào room
-                question.options = shuffled_options
-            question_dict.pop("correct_answer", None)
-            return question_dict
-
-        # ✅ 6. Chuẩn bị danh sách câu hỏi cho client
-        client_questions = [prepare_question_for_client(q) for q in questions]
-
-        # ✅ 7. Cập nhật trạng thái phòng
-        room.players = [p.model_copy(update={"status": PLAYER_STATUS.ACTIVE}) for p in room.players]
-        room.status = GAME_STATUS.IN_PROGRESS
-        room.current_questions = questions 
-        room.current_index = 0
-        room.started_at = datetime.now(timezone.utc)
-
-        await self.room_service.save_room(room)
-        self.manager.clear_room_timeout(room_id)
-
-        # ✅ 8. Gửi sự kiện bắt đầu game với tất cả câu hỏi (không có đáp án)
-        start_at = int(time.time() * 1000) + (room.countdown_duration * 1000)
-        await self.manager.broadcast_to_room(room_id, {
-            "type": "game_started",
-            "payload": {
-                "totalQuestions": len(questions),
-                "easyCount": easy_count,
-                "mediumCount": medium_count,
-                "hardCount": hard_count,
-                "countdownDuration": room.countdown_duration,
-                "startAt": start_at,
-                "roomSettings": {
-                    "easyQuestions": QUESTION_CONFIG[QUESTION_DIFFICULTY.EASY],
-                    "mediumQuestions": QUESTION_CONFIG[QUESTION_DIFFICULTY.MEDIUM],
-                    "hardQuestions": QUESTION_CONFIG[QUESTION_DIFFICULTY.HARD],
-                }
-            }
-        })
-
-        # ✅ 9. Gửi câu hỏi đầu tiên sau countdown
-        async def send_first_question():
-            await asyncio.sleep(room.countdown_duration)
-            await self._send_current_question(room_id)
-
-        asyncio.create_task(send_first_question())
+        # Gọi logic start game chung
+        await self._start_game_logic(room_id, is_auto_start=False)
 
     # ✅ Helper function để xử lý submit answer (IMPROVED)
     async def _handle_submit_answer(self, websocket: WebSocket, room_id: str, wallet_id: str, data: dict):
@@ -1048,6 +969,7 @@ class WebSocketController:
         # Bước 2: Kết nối người chơi vào WebSocketManager
         await self.manager.connect_room(websocket, room_id, wallet_id)
 
+
         # Bước 3: Xử lý các kịch bản kết nối
         is_reconnecting = player.player_status == PLAYER_STATUS.DISCONNECTED
         is_game_in_progress_and_stale = False
@@ -1108,7 +1030,8 @@ class WebSocketController:
             print(f"[CONNECT] Player {wallet_id} established a new connection to room {room_id}.")
             # Chỉ cần gửi gói tin đồng bộ hóa, không cần broadcast.
             await self._send_game_sync_payload(websocket, room_id)
-        
+
+        await self._handle_auto_start_triggered(websocket, room_id, wallet_id, {})
         
         # Bước 4: Vòng lặp xử lý tin nhắn (giữ nguyên)
         room_handlers = {
@@ -1117,6 +1040,8 @@ class WebSocketController:
             "start_game": self._handle_start_game,
             "submit_answer": self._handle_submit_answer,
             "leave_room": self._handle_leave_room,
+            "auto_start_triggered": self._handle_auto_start_triggered,
+
             # player_disconnected được xử lý qua disconnect event, không cần handler ở đây
         }
         try:
@@ -1133,7 +1058,192 @@ class WebSocketController:
         finally:
             # Luôn đảm bảo ngắt kết nối khỏi manager khi coroutine kết thúc
             self.manager.disconnect_room(websocket, room_id)
-    
+
+    async def _handle_auto_start_triggered(self, websocket: WebSocket, room_id: str, wallet_id: str, data: dict):
+        """Xử lý khi nhận được signal auto-start từ room controller"""
+        try:
+            print(f"[AUTO-START] Received auto_start_triggered signal for room {room_id}")
+            
+            # Kiểm tra điều kiện: có ít nhất 2 người chơi
+            if len(self.manager.get_all_player_sockets_in_room(room_id)) >= 2:
+                # Bắt đầu auto-countdown
+                await self._start_auto_countdown(room_id)
+            else:
+                print(f"[AUTO-START] Not enough players in room {room_id} for auto-start")
+                
+        except Exception as e:
+            print(f"Error handling auto start triggered: {e}")
+            await send_json_safe(websocket, {"type": "error", "message": "Failed to start auto-countdown"})
+
+    async def _start_auto_countdown(self, room_id: str):
+        """Bắt đầu countdown tự động khi tất cả người chơi ready"""
+        try:
+            room = await self.room_service.get_room(room_id)
+            if not room or room.status != GAME_STATUS.WAITING:
+                print(f"[AUTO-START] Room {room_id} not in WAITING status, skipping auto-countdown")
+                return
+
+            print(f"[AUTO-START] Starting auto-countdown for room {room_id}")
+
+            # Đặt trạng thái phòng thành COUNTING_DOWN
+            room.status = GAME_STATUS.COUNTING_DOWN
+            await self.room_service.save_room(room)
+
+            # Broadcast bắt đầu auto-countdown
+            await self.manager.broadcast_to_room(room_id, {
+                "type": "auto_countdown_started",
+                "payload": {
+                    "countdownDuration": 10,  # 10 giây như yêu cầu
+                    "startAt": int(time.time() * 1000) + 10000  # 10 giây từ bây giờ
+                }
+            })
+
+            # Tạo task để theo dõi countdown
+            asyncio.create_task(self._monitor_auto_countdown(room_id))
+
+        except Exception as e:
+            print(f"Error starting auto countdown: {e}")
+
+    async def _monitor_auto_countdown(self, room_id: str):
+        """Theo dõi countdown và kiểm tra nếu có người chơi bỏ ready"""
+        try:
+            await asyncio.sleep(10)  # Đợi 10 giây
+
+            # Kiểm tra lại trạng thái phòng và người chơi
+            room = await self.room_service.get_room(room_id)
+            if not room or room.status != GAME_STATUS.COUNTING_DOWN:
+                return
+
+            active_players = [p for p in room.players if p.player_status != PLAYER_STATUS.DISCONNECTED]
+            ready_players = [p for p in active_players if p.is_ready]
+
+            # Nếu vẫn tất cả ready, bắt đầu game
+            if len(active_players) >= 2 and len(ready_players) == len(active_players):
+                print(f"[AUTO-START] Countdown completed, starting game in room {room_id}")
+                
+                # Gọi logic start game (sử dụng lại code từ _handle_start_game)
+                await self._auto_start_game(room_id)
+            else:
+                # Có người chơi bỏ ready, dừng countdown
+                print(f"[AUTO-START] Countdown cancelled - not all players ready in room {room_id}")
+                room.status = GAME_STATUS.WAITING
+                await self.room_service.save_room(room)
+                
+                await self.manager.broadcast_to_room(room_id, {
+                    "type": "auto_countdown_cancelled",
+                    "payload": {
+                        "message": "Countdown cancelled - not all players ready"
+                    }
+                })
+
+        except Exception as e:
+            print(f"Error monitoring auto countdown: {e}")
+
+    async def _auto_start_game(self, room_id: str):
+        """Logic tự động start game - sử dụng lại logic từ _handle_start_game"""
+        try:
+            # Gọi logic start game trực tiếp
+            await self._start_game_logic(room_id, is_auto_start=True)
+
+        except Exception as e:
+            print(f"Error auto starting game: {e}")
+
+    async def _start_game_logic(self, room_id: str, is_auto_start: bool = False):
+        """Logic chung để start game (có thể gọi từ _handle_start_game hoặc auto-start)"""
+        try:
+            # ✅ 2. Kiểm tra xem game đã bắt đầu chưa
+            room = await self.room_service.get_room(room_id)
+            if not room:
+                return
+                
+            if room.status == GAME_STATUS.IN_PROGRESS:
+                return
+
+            easy_count = room.easy_questions if room.easy_questions is not None else QUESTION_CONFIG[QUESTION_DIFFICULTY.EASY]["quantity"]
+            medium_count = room.medium_questions if room.medium_questions is not None else QUESTION_CONFIG[QUESTION_DIFFICULTY.MEDIUM]["quantity"]
+            hard_count = room.hard_questions if room.hard_questions is not None else QUESTION_CONFIG[QUESTION_DIFFICULTY.HARD]["quantity"]
+
+            # ✅ 4. Lấy danh sách câu hỏi và shuffle
+            easy_qs = await self.question_service.get_random_questions_by_difficulty(QUESTION_DIFFICULTY.EASY, easy_count)
+            medium_qs = await self.question_service.get_random_questions_by_difficulty(QUESTION_DIFFICULTY.MEDIUM, medium_count)
+            hard_qs = await self.question_service.get_random_questions_by_difficulty(QUESTION_DIFFICULTY.HARD, hard_count)
+
+            questions = [*easy_qs, *medium_qs, *hard_qs]
+            random.shuffle(questions)
+
+            if not questions:
+                return
+                
+            # Nếu không đủ câu hỏi, điều chỉnh total_questions
+            if len(questions) < (easy_count + medium_count + hard_count):
+                pass
+                
+            # Đảm bảo có đủ câu hỏi bằng cách lặp lại nếu cần
+            target_questions = easy_count + medium_count + hard_count
+            if len(questions) < target_questions:
+                # Lặp lại câu hỏi để đạt được số lượng mong muốn
+                repeated_questions = []
+                while len(repeated_questions) < target_questions:
+                    repeated_questions.extend(questions[:target_questions - len(repeated_questions)])
+                questions = repeated_questions[:target_questions]
+
+            # ✅ 5. Chuẩn bị dữ liệu câu hỏi cho client (loại bỏ đáp án đúng)
+            def prepare_question_for_client(question):
+                """Chuẩn bị câu hỏi để gửi cho client, loại bỏ correct_answer"""
+                question_dict = question.dict()
+                options = question_dict.get("options", [])
+                if options:
+                    shuffled_options = options.copy()
+                    random.shuffle(shuffled_options)
+                    question_dict["options"] = shuffled_options
+                    # Gán lại options đã shuffle vào object gốc để lưu vào room
+                    question.options = shuffled_options
+                question_dict.pop("correct_answer", None)
+                return question_dict
+
+            # ✅ 6. Chuẩn bị danh sách câu hỏi cho client
+            client_questions = [prepare_question_for_client(q) for q in questions]
+
+            # ✅ 7. Cập nhật trạng thái phòng
+            room.players = [p.model_copy(update={"status": PLAYER_STATUS.ACTIVE}) for p in room.players]
+            room.status = GAME_STATUS.IN_PROGRESS
+            room.current_questions = questions 
+            room.current_index = 0
+            room.started_at = datetime.now(timezone.utc)
+
+            await self.room_service.save_room(room)
+            self.manager.clear_room_timeout(room_id)
+
+            # ✅ 8. Gửi sự kiện bắt đầu game với tất cả câu hỏi (không có đáp án)
+            start_at = int(time.time() * 1000) + (room.countdown_duration * 1000)
+            await self.manager.broadcast_to_room(room_id, {
+                "type": "game_started",
+                "payload": {
+                    "totalQuestions": len(questions),
+                    "easyCount": easy_count,
+                    "mediumCount": medium_count,
+                    "hardCount": hard_count,
+                    "countdownDuration": room.countdown_duration,
+                    "startAt": start_at,
+                    "isAutoStarted": is_auto_start,  # Flag để frontend biết đây là auto-start
+                    "roomSettings": {
+                        "easyQuestions": QUESTION_CONFIG[QUESTION_DIFFICULTY.EASY],
+                        "mediumQuestions": QUESTION_CONFIG[QUESTION_DIFFICULTY.MEDIUM],
+                        "hardQuestions": QUESTION_CONFIG[QUESTION_DIFFICULTY.HARD],
+                    }
+                }
+            })
+
+            # ✅ 9. Gửi câu hỏi đầu tiên sau countdown
+            async def send_first_question():
+                await asyncio.sleep(room.countdown_duration)
+                await self._send_current_question(room_id)
+
+            asyncio.create_task(send_first_question())
+
+        except Exception as e:
+            print(f"Error in start game logic: {e}")
+            
     async def _check_and_show_question_result(self, room_id: str):
         room = await self.room_service.get_room(room_id)
         # Thêm kiểm tra phòng và câu hỏi hiện tại để tăng độ an toàn

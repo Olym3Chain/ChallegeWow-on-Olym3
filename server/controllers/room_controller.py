@@ -103,6 +103,8 @@ class RoomController:
                 wallet_id=request.wallet_id,
                 username=request.username,
                 room_id=room.id,
+                is_ready=True,
+                player_status=PLAYER_STATUS.READY
             )
             room.players.append(player)
             await self.room_service.save_room(room)
@@ -306,3 +308,4 @@ class RoomController:
                 self.websocket_manager.disconnect_room_by_room_id(room_id)
                 print(f"[ROOM_TIMEOUT] Room {room_id} closed due to inactivity.")
         return on_timeout
+

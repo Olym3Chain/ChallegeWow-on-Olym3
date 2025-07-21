@@ -90,6 +90,10 @@ class WebSocketManager:
         if connections:
             return next(iter(connections), None) # Trả về một phần tử bất kỳ từ set
         return None
+    
+    def get_all_player_sockets_in_room(self, room_id: str) -> List[WebSocket]:
+        """Lấy tất cả các kết nối của tất cả người chơi trong một phòng."""
+        return list(self.room_connections.get(room_id, []))
 
     def get_connections_in_room(self, room_id: str) -> List[WebSocket]:
         """Lấy danh sách tất cả kết nối trong một phòng."""
