@@ -13,14 +13,28 @@ import { useGameState } from "@/lib/game-state";
 import { Card, CardHeader, CardTitle, CardContent } from "../ui/card";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "../ui/button";
+import { parseNftReward } from "@/lib/nft/utilts";
+import { useMemo } from "react";
+import { NFTRewardCard } from "./nft-card";
 
 interface GameResultsProps {
   handleFinished: () => void;
 }
 
 export const GameResults = ({ handleFinished }: GameResultsProps) => {
-  const { gameResults, currentUser, winnerWallet, totalQuestions, players } =
-    useGameState();
+  const {
+    gameResults,
+    currentUser,
+    winnerWallet,
+    totalQuestions,
+    players,
+    nftRewardRaw,
+    setNftRewardRaw,
+  } = useGameState();
+
+  // Parse NFT once
+  const nftReward = useMemo(() => parseNftReward(nftRewardRaw), [nftRewardRaw]);
+
   // Sort results by score for proper ranking
   const sortedResults = [...gameResults].sort((a, b) => b.score - a.score);
 
@@ -460,6 +474,15 @@ export const GameResults = ({ handleFinished }: GameResultsProps) => {
                 </div>
               </CardContent>
             </Card>
+          </motion.div>
+
+          {/* --- NFT Reward Section --- */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.6 }}
+          >
+            {nftReward && <NFTRewardCard nft={nftReward} />}
           </motion.div>
 
           {/* Action Buttons */}

@@ -4,23 +4,25 @@ import { useNetworkStatus } from "@/hooks/use-network-status";
 import { AddOlym3Network } from "./add-olym3-network";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { 
-  CheckCircle, 
-  AlertTriangle, 
-  Wifi, 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  CheckCircle,
+  AlertTriangle,
+  Wifi,
   WifiOff,
   Wallet,
-  Network
+  Network,
 } from "lucide-react";
 
 export function NetworkStatusBanner() {
-  const { 
-    isConnected, 
-    isCorrectNetwork, 
-    isLoading, 
-    networkName 
-  } = useNetworkStatus();
+  const { isConnected, isCorrectNetwork, isLoading, networkName } =
+    useNetworkStatus();
 
   if (isLoading) {
     return (
@@ -52,14 +54,12 @@ export function NetworkStatusBanner() {
         <AlertTriangle className="h-4 w-4 text-orange-600" />
         <AlertTitle>Sai mạng blockchain</AlertTitle>
         <AlertDescription className="flex items-center justify-between">
-          <span>
-            Vui lòng chuyển sang mạng {networkName} để tham gia game
-          </span>
+          <span>Vui lòng chuyển sang mạng {networkName} để tham gia game</span>
           <Dialog>
             <DialogTrigger asChild>
               <Button size="sm" variant="outline">
                 <Network className="h-4 w-4 mr-2" />
-                Thêm mạng
+                Add network
               </Button>
             </DialogTrigger>
             <DialogContent>
@@ -83,4 +83,4 @@ export function NetworkStatusBanner() {
       </AlertDescription>
     </Alert>
   );
-} 
+}

@@ -26,7 +26,15 @@ class UserController:
 
     async def update_username(self, wallet_id: str, username: str):
         return await self.update_user(wallet_id, username=username)
+    
+    async def get_user_stats(self, wallet_id: str):
+        stats = await self.user_stats_repo.get_user_stats(wallet_id)
+        print(f"stats: {stats}")
+        if not stats:
+            raise HTTPException(status_code=404, detail="User stats not found")
+        return stats
 
     async def get_leaderboard(self, limit: int = 10, period=LEADERBOARD_PERIOD.ALL_TIME):
         data = await self.user_stats_repo.get_leaderboard(limit, period)
         return [LeaderboardEntry(**item) for item in data]
+    

@@ -117,4 +117,5 @@ class BlockchainService:
     def get_nft_by_room(self, room_id: str):
         """Get NFT information by room ID"""
         room_id_bytes = self._convert_uuid_to_bytes16(room_id)
+        print(f"room_bytes: {room_id_bytes}")
         return self.nft_contract.functions.getNFTByRoom(room_id_bytes).call()

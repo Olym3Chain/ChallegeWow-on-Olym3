@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { OLYM3_TESTNET } from "@/lib/constants";
 import { useAccount, useSwitchChain } from "wagmi";
 import { toast } from "@/hooks/use-toast";
@@ -48,20 +54,21 @@ export function AddOlym3Network() {
             ],
           });
           toast({
-            title: "Thành công!",
-            description: "Đã thêm mạng Olym3 Testnet vào MetaMask",
+            title: "Successfully!",
+            description: "Add Olym3 to Metamask successfully",
           });
         } catch (addError) {
           toast({
-            title: "Lỗi",
-            description: "Không thể thêm mạng Olym3 Testnet. Vui lòng thử lại.",
+            title: "Failed!",
+            description:
+              "Cannot add Olym3 to Metamask successfully. Please try again!",
             variant: "destructive",
           });
         }
       } else {
         toast({
-          title: "Lỗi",
-          description: "Không thể chuyển mạng. Vui lòng thử lại.",
+          title: "Failed",
+          description: "Cannot change network. Please try again.",
           variant: "destructive",
         });
       }
@@ -78,14 +85,14 @@ export function AddOlym3Network() {
         </div>
         <CardTitle className="text-xl">Kết nối Olym3 Testnet</CardTitle>
         <CardDescription>
-          Thêm mạng Olym3 Testnet vào ví MetaMask để tham gia game
+          Add Olym3 Network Testnet to MetaMask Wallet to join the game
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
           <div className="flex items-center space-x-2 text-sm">
             <CheckCircle className="h-4 w-4 text-green-500" />
-            <span>Mạng: {OLYM3_TESTNET.name}</span>
+            <span>Network: {OLYM3_TESTNET.name}</span>
           </div>
           <div className="flex items-center space-x-2 text-sm">
             <CheckCircle className="h-4 w-4 text-green-500" />
@@ -101,7 +108,7 @@ export function AddOlym3Network() {
           <div className="flex items-center space-x-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
             <AlertCircle className="h-4 w-4 text-yellow-600" />
             <span className="text-sm text-yellow-800">
-              Vui lòng kết nối ví MetaMask trước
+              Please connect MetaMask Wallet first
             </span>
           </div>
         ) : (
@@ -114,12 +121,12 @@ export function AddOlym3Network() {
             {isAdding ? (
               <>
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                Đang thêm mạng...
+                Adding network...
               </>
             ) : (
               <>
                 <Wallet className="h-4 w-4 mr-2" />
-                Thêm Olym3 Testnet
+                Add Olym3 Testnet
               </>
             )}
           </Button>
@@ -127,10 +134,11 @@ export function AddOlym3Network() {
 
         <div className="text-xs text-gray-500 text-center">
           <p>
-            Sau khi thêm mạng, bạn có thể nhận OLYM test tokens từ faucet để tham gia game
+            After adding the network, you can receive OLYM test tokens from the
+            faucet to join the game.
           </p>
         </div>
       </CardContent>
     </Card>
   );
-} 
+}

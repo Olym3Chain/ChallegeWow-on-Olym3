@@ -3,8 +3,8 @@ from services.aptos_service import AptosService
 from typing import Dict, Any
 from fastapi import HTTPException, Body 
 class AptosController:
-    def __init__(self):
-        self.aptos_service = AptosService()
+    def __init__(self, aptos_service: AptosService):
+        self.aptos_service = aptos_service
 
     # --- THÊM LẠI ASYNC/AWAIT ---
     async def get_account_balance(self, address: str) -> Dict[str, Any]:

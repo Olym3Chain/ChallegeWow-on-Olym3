@@ -24,7 +24,6 @@ import type { Room } from "@/types/schema";
 import {
   fetchRooms,
   createRoom,
-  joinRoom,
   fetchUserByWallet,
   updateUser,
   fetchCurrentRoom,
@@ -34,7 +33,6 @@ import ConnectWalletModal from "@/components/connect-wallet-modal";
 import { GameStatus } from "@/types/GameStatus";
 import { RECONNECT_WS } from "@/lib/constants";
 import { useJoinRoomMutation } from "@/hooks/use-join-mutation";
-import { usePetraWallet } from "@/hooks/use-petra-wallet";
 
 export default function Lobby() {
   const router = useRouter();
@@ -42,14 +40,12 @@ export default function Lobby() {
 
   const [showConnectModal, setShowConnectModal] = useState(false);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
-  const [showUsernameModal, setShowUsernameModal] = useState(false);
 
   const { currentUser, setCurrentUser } = useGameState();
 
   const [onlineStats, setOnlineStats] = useState({
     activeRooms: 0,
     playersOnline: 0,
-    avgResponseTime: "0.0s",
   });
 
   const [inviteCode, setInviteCode] = useState("");
@@ -93,22 +89,6 @@ export default function Lobby() {
     }
   }, [currentUser?.walletId, pendingAction]);
 
-  useEffect(() => {
-    if (currentUser?.walletId && currentUser?.walletId) {
-      fetchUserByWallet(currentUser?.walletId).then((user) => {
-        setCurrentUser(user);
-        if (
-          !user ||
-          !user.username ||
-          user.username === null ||
-          user.username === ""
-        ) {
-          setShowUsernameModal(true);
-        }
-      });
-    }
-  }, [currentUser?.walletId, currentUser?.walletId, setCurrentUser]);
-
   const {
     data: rooms = [],
     isLoading,
@@ -130,13 +110,9 @@ export default function Lobby() {
       return total + (room.players?.length || 0);
     }, 0);
 
-    // Fake avg response time
-    const avgResponseTime = `${(Math.random() * 2 + 1).toFixed(1)}s`;
-
     setOnlineStats({
       activeRooms,
       playersOnline,
-      avgResponseTime,
     });
   }, [rooms]);
 
@@ -257,7 +233,6 @@ export default function Lobby() {
     await updateUser(currentUser?.walletId, username);
     const updatedUser = await fetchUserByWallet(currentUser.walletId);
     setCurrentUser(updatedUser);
-    setShowUsernameModal(false);
   };
 
   return (
@@ -489,14 +464,6 @@ export default function Lobby() {
                         {onlineStats.playersOnline}
                       </span>
                     </div>
-                    <div className="flex justify-between items-center p-2 bg-orange-400/10 rounded">
-                      <span className="text-gray-300 text-sm">
-                        Avg. Response:
-                      </span>
-                      <span className="font-bold text-orange-400">
-                        {onlineStats.avgResponseTime}
-                      </span>
-                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -643,11 +610,7 @@ export default function Lobby() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.3, delay: index * 0.1 }}
                     >
-                      <RoomCard
-                        index={index}
-                        room={room}
-                        onJoin={handleJoinRoom}
-                      />
+                      <RoomCard room={room} onJoin={handleJoinRoom} />
                     </motion.div>
                   ))}
                 </motion.div>
@@ -665,4 +628,3 @@ export default function Lobby() {
     </div>
   );
 }
-

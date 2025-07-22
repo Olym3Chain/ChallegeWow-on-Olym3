@@ -9,12 +9,11 @@ import { MAX_PLAYERS_PER_ROOM } from "@/lib/constants";
 import { GameStatus } from "@/types/GameStatus";
 
 interface RoomCardProps {
-  index: number;
   room: Room;
   onJoin: (roomId: string) => void;
 }
 
-export default function RoomCard({ index, room, onJoin }: RoomCardProps) {
+export default function RoomCard({ room, onJoin }: RoomCardProps) {
   const getStatusColor = (status: string) => {
     switch (status) {
       case GameStatus.WAITING:
@@ -67,7 +66,7 @@ export default function RoomCard({ index, room, onJoin }: RoomCardProps) {
                   className="text-xl font-orbitron font-bold bg-gradient-to-r from-neon-blue to-blue-400 bg-clip-text text-transparent"
                   whileHover={{ scale: 1.05 }}
                 >
-                  Room #{index + 1}
+                  Room #{room?.roomCode ?? "####"}
                 </ClientMotion>
                 <ClientMotion whileHover={{ scale: 1.1 }}>
                   <Badge

@@ -3,8 +3,21 @@
 import { useState, useEffect } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Wallet, Download, ExternalLink, Coins, ChevronDown, CheckCircle, X } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Wallet,
+  Download,
+  ExternalLink,
+  Coins,
+  ChevronDown,
+  CheckCircle,
+  X,
+} from "lucide-react";
 import { usePetraWallet } from "@/hooks/use-petra-wallet";
 import { useAptosBalanceApi } from "@/hooks/use-aptos-balance-api";
 import { useGameState } from "@/lib/game-state";
@@ -14,18 +27,28 @@ interface ConnectButtonWithPetraProps {
   className?: string;
 }
 
-export function ConnectButtonWithPetra({ className }: ConnectButtonWithPetraProps) {
+export function ConnectButtonWithPetra({
+  className,
+}: ConnectButtonWithPetraProps) {
   const [showPetraModal, setShowPetraModal] = useState(false);
-  const { installed, isConnected, isLoading, connect, disconnect, autoConnect } = usePetraWallet();
+  const {
+    installed,
+    isConnected,
+    isLoading,
+    connect,
+    disconnect,
+    autoConnect,
+  } = usePetraWallet();
   const { currentUser, setCurrentUser } = useGameState();
-  const { balance, loading: loadingBalance } = useAptosBalanceApi(isConnected ? currentUser?.walletId : undefined);
-
+  const { balance, loading: loadingBalance } = useAptosBalanceApi(
+    isConnected ? currentUser?.walletId : undefined
+  );
 
   // Debug logging
   useEffect(() => {
-    console.log('ConnectButtonWithPetra - currentUser:', currentUser);
-    console.log('ConnectButtonWithPetra - isConnected:', isConnected);
-    console.log('ConnectButtonWithPetra - walletId:', currentUser?.walletId);
+    console.log("ConnectButtonWithPetra - currentUser:", currentUser);
+    console.log("ConnectButtonWithPetra - isConnected:", isConnected);
+    console.log("ConnectButtonWithPetra - walletId:", currentUser?.walletId);
   }, [currentUser, isConnected]);
 
   useEffect(() => {
@@ -34,7 +57,7 @@ export function ConnectButtonWithPetra({ className }: ConnectButtonWithPetraProp
         try {
           await autoConnect(currentUser.walletId);
         } catch (error) {
-          console.error('Failed to auto-connect Petra:', error);
+          console.error("Failed to auto-connect Petra:", error);
         }
       }
     };
@@ -50,7 +73,7 @@ export function ConnectButtonWithPetra({ className }: ConnectButtonWithPetraProp
           const updatedUser = await loginUser(currentUser.walletId);
           setCurrentUser(updatedUser);
         } catch (error) {
-          console.error('Failed to save aptos_wallet to database:', error);
+          console.error("Failed to save aptos_wallet to database:", error);
         }
       })();
     }
@@ -67,7 +90,7 @@ export function ConnectButtonWithPetra({ className }: ConnectButtonWithPetraProp
       // Không cần lưu wallet ở đây nữa, đã chuyển vào useEffect
       setShowPetraModal(false);
     } catch (error) {
-      console.error('Failed to connect Petra:', error);
+      console.error("Failed to connect Petra:", error);
     }
   };
 
@@ -76,7 +99,10 @@ export function ConnectButtonWithPetra({ className }: ConnectButtonWithPetraProp
   };
 
   const installPetra = () => {
-    window.open('https://chrome.google.com/webstore/detail/petra-aptos-wallet/ejjladinncaoajkhkmocdnaabaieajji', '_blank');
+    window.open(
+      "https://chrome.google.com/webstore/detail/petra-aptos-wallet/ejjladinncaoajkhkmocdnaabaieajji",
+      "_blank"
+    );
   };
 
   return (
@@ -94,7 +120,9 @@ export function ConnectButtonWithPetra({ className }: ConnectButtonWithPetraProp
                 <Coins className="w-4 h-4 text-white" />
               </div>
               <div className="flex flex-col">
-                <span className="text-xs text-gray-400 font-medium">Aptos Balance</span>
+                <span className="text-xs text-gray-400 font-medium">
+                  Aptos Balance
+                </span>
                 <span className="text-sm font-semibold text-white">
                   {loadingBalance ? (
                     <div className="flex items-center gap-1">
@@ -159,7 +187,7 @@ export function ConnectButtonWithPetra({ className }: ConnectButtonWithPetraProp
               The official Aptos wallet for seamless blockchain interactions
             </p>
           </DialogHeader>
-          
+
           <div className="space-y-6">
             <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700/50">
               <h4 className="font-semibold text-white mb-2 flex items-center gap-2">
@@ -173,7 +201,7 @@ export function ConnectButtonWithPetra({ className }: ConnectButtonWithPetraProp
                 <li>• Built-in DApp browser</li>
               </ul>
             </div>
-            
+
             <div className="flex flex-col gap-3">
               <Button
                 onClick={installPetra}
@@ -182,17 +210,17 @@ export function ConnectButtonWithPetra({ className }: ConnectButtonWithPetraProp
                 <Download className="w-4 h-4 mr-2" />
                 Install Petra Extension
               </Button>
-              
+
               <Button
                 variant="outline"
-                onClick={() => window.open('https://petra.app/', '_blank')}
+                onClick={() => window.open("https://petra.app/", "_blank")}
                 className="border-purple-500/50 text-purple-400 hover:bg-purple-500/10 hover:border-purple-400 font-medium py-3 rounded-xl transition-all duration-300"
               >
                 <ExternalLink className="w-4 h-4 mr-2" />
                 Visit Official Website
               </Button>
             </div>
-            
+
             <div className="text-center">
               <p className="text-xs text-gray-500 bg-gray-800/50 rounded-lg p-3 border border-gray-700/50">
                 After installation, refresh the page and try connecting again.
@@ -203,4 +231,4 @@ export function ConnectButtonWithPetra({ className }: ConnectButtonWithPetraProp
       </Dialog>
     </>
   );
-} 
+}

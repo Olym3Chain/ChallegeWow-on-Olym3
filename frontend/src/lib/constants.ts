@@ -13,6 +13,9 @@ export const HOST_TRANSFER_TYPE = "host_transfer";
 export const GAME_SYNC_TYPE = "game_sync";
 export const PLAYER_RECONNECTED_TYPE = "player_reconnected";
 export const AUTO_START_TRIGGERED_TYPE = "auto_start_triggered";
+export const AUTO_COUNTDOWN_STARTED = "auto_countdown_started";
+export const AUTO_COUNTDOWN_CANCELLED = "auto_countdown_cancelled";
+export const NFT_AWARDED = "nft_awarded";
 
 // Game Flow Message Types
 export const GAME_STARTED_TYPE = "game_started";
@@ -169,4 +172,3 @@ export const CONTRACT_ADDRESSES = {
   OLYM_TOKEN: "0x93Aa93c57f2c4B3265e34eb1610a3B2E17eD4Aac",
   NFT_CONTRACT: "0x7aae365deb5704842e9db405bE4f531d004e0011",
 } as const;
-

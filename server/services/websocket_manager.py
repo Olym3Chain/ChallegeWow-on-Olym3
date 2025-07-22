@@ -103,6 +103,8 @@ class WebSocketManager:
         """Gửi một thông điệp tới tất cả các kết nối trong một phòng."""
         # Sao chép set thành list để tránh lỗi khi kích thước thay đổi trong lúc lặp
         connections_to_send = self.get_connections_in_room(room_id)
+        for c in connections_to_send:
+            print("[DEBUG] Connection Type:", type(c), c)
         
         if connections_to_send:
             print(f"[BROADCAST] Sending to {len(connections_to_send)} connection(s) in room {room_id}.")

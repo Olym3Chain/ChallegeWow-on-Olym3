@@ -2,8 +2,8 @@ from fastapi import HTTPException
 from services.nft_service import BlockchainService
 
 class NFTController:
-    def __init__(self):
-        self.nft_service = BlockchainService()
+    def __init__(self, nft_service: BlockchainService):
+        self.nft_service = nft_service
 
     async def award_nft(self, action: str, room_id: str, metadata_uri: str = None, winner_address: str = None):
         try:
@@ -49,6 +49,8 @@ class NFTController:
     async def get_nft_info(self, room_id: str):
         """Get NFT information by room ID"""
         try:
-            return self.nft_service.get_nft_by_room(room_id)
+            data = self.nft_service.get_nft_by_room(room_id)
+            print(f"data: {data}")
+            return data
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to get NFT info: {str(e)}") 

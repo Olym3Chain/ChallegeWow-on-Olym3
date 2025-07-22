@@ -5,7 +5,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ConnectButtonWithPetra } from "@/components/connect-button-with-petra";
+import { CustomConnectButton } from "./custom-connect-button";
 
 export default function ConnectWalletModal({
   open,
@@ -15,8 +15,8 @@ export default function ConnectWalletModal({
   onOpenChange: (open: boolean) => void;
 }) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
-      <DialogContent className="bg-cyber-dark border-neon-blue flex flex-col items-center justify-center z-[9999]">
+    <Dialog open={open} onOpenChange={onOpenChange} modal={open}>
+      <DialogContent className="bg-cyber-dark border-neon-blue flex flex-col items-center justify-center">
         <DialogHeader>
           <DialogTitle className="text-neon-purple text-center">
             Wallet Not Connected
@@ -26,7 +26,8 @@ export default function ConnectWalletModal({
           </DialogDescription>
         </DialogHeader>
         <div className="flex justify-center mt-4">
-          <ConnectButtonWithPetra />
+          {/* <ConnectButtonWithPetra /> */}
+          <CustomConnectButton onClose={() => onOpenChange(false)} />
         </div>
       </DialogContent>
     </Dialog>

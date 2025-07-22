@@ -52,15 +52,21 @@ def json_safe(obj: Any, exclude: Set[str] = None):
     raise TypeError(f"Object of type {obj.__class__.__name__} is not JSON serializable")
 
 async def send_json_safe(websocket: WebSocket | None, data: dict):
-    if websocket:
-        if websocket.client_state != WebSocketState.CONNECTED:
-            print("⚠️ WebSocket already closed, cannot send message.")
-            return
-
-        try:
-            print(f"[SEND_JSON]: {data}")
-            await websocket.send_json(jsonable_encoder(data))
-        except Exception as e:
-            print(f"❌ Failed to send safe camelCase WS message: {e}")
-    else:
+    if not websocket:
         print("⚠️ No websocket to send message to.")
+        return
+
+    if not isinstance(websocket, WebSocket):
+        print(f"⚠️ Invalid websocket object: {type(websocket)} -> {websocket}")
+        return
+
+    if websocket.client_state != WebSocketState.CONNECTED:
+        print("⚠️ WebSocket already closed, cannot send message.")
+        return
+
+    try:
+        print(f"[SEND_JSON]: {data}")
+        await websocket.send_json(jsonable_encoder(data))
+    except Exception as e:
+        print(f"❌ Failed to send safe camelCase WS message: {e}")
+        return e

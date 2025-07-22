@@ -108,3 +108,24 @@ export interface LeaderboardEntry {
   rank: number;
   tier: string;
 }
+
+export interface UserStats {
+  rank: number;
+  total_score: number;
+  games_played: number;
+  games_won: number;
+  updated_at: string;
+  wallet_id: string;
+  username: string;
+  avatar_url: string | null;
+  tier: string;
+}
+
+export interface NftReward {
+  blockId: number;
+  sender?: string;
+  owner: string;
+  uri: string;
+  claimable: boolean;
+  image?: string | null; // resolved from metadata (optional)
+}

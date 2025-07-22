@@ -26,6 +26,8 @@ from controllers.nft_controller import NFTController
 from controllers.aptos_controller import AptosController
 from controllers.user_post_controller import UserPostController
 
+from services.aptos_service import AptosService
+from services.nft_service import BlockchainService
 from services.websocket_manager import WebSocketManager
 from repositories.implement.zkproof_repo_impl import ZkProofRepository
 from services.zkproof_service import ZkProofService
@@ -83,6 +85,8 @@ async def lifespan(app: FastAPI):
     game_service = GameService(room_service, question_service, zkproof_service, answer_service)
     websocket_manager = WebSocketManager()
     user_post_service = UserPostService(user_post_repo)
+    blockchain_service = BlockchainService()
+    aptos_service = AptosService()
 
     # Controllers
     app.state.room_controller = RoomController(room_service, game_service, player_service, websocket_manager)
@@ -91,10 +95,10 @@ async def lifespan(app: FastAPI):
     app.state.answer_controller = AnswerController(answer_service, room_service, game_service)
     app.state.user_controller = UserController(user_repo, user_stats_repo)
     app.state.zkproof_controller = ZkProofController(zkproof_service)
-    app.state.websocket_controller = WebSocketController(websocket_manager, player_service, room_service, question_service, answer_service, user_repo, user_stats_repo)
-    app.state.nft_controller = NFTController()
-    app.state.aptos_controller = AptosController()
+    app.state.nft_controller = NFTController(nft_service=blockchain_service)
+    app.state.aptos_controller = AptosController(aptos_service=aptos_service)
     app.state.user_post_controller = UserPostController(user_post_service)
+    app.state.websocket_controller = WebSocketController(websocket_manager, player_service, room_service, question_service, answer_service, user_repo, user_stats_repo, blockchain_service, aptos_service)
 
     # Router Setup
     api_router = APIRouter(prefix="/api")

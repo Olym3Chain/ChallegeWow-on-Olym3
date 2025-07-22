@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   CheckCircle,
   Trophy,
@@ -18,14 +17,14 @@ import ConfettiEffect from "@/components/confetti-effect";
 import { useGameState } from "@/lib/game-state";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { useToast } from "@/hooks/use-toast";
-import type { Room, User, Player } from "@/types/schema";
+import type { Room, User, Player, NftReward } from "@/types/schema";
 import { GameStatus } from "@/types/GameStatus";
 import {
-  awardNFT,
   fetchRoomById,
   leaveRoom,
   changePlayerStatus,
   fetchRoomResults,
+  getRoomNFTInfo,
 } from "@/lib/api";
 import {
   LEAVE_ROOM_TYPE,
@@ -47,10 +46,11 @@ import {
   GAME_SYNC_TYPE,
   PLAYER_RECONNECTED_TYPE,
   AUTO_START_TRIGGERED_TYPE,
+  AUTO_COUNTDOWN_STARTED,
+  AUTO_COUNTDOWN_CANCELLED,
+  NFT_AWARDED,
 } from "@/lib/constants";
-import { DEFAULT_GAME_SETTINGS } from "@/app/config/GameSettings";
 import { useAccount } from "wagmi";
-import PlayerCard from "@/components/player-card";
 import type { ChatMessage as ChatMsg, Sender } from "@/types/chat-message";
 import { GameResults } from "@/components/game/game-result";
 import { QuestionResult } from "@/components/game/question_result";
@@ -78,8 +78,10 @@ export default function ChallengeRoom({
     setGameStatus,
     questionIndex,
     setQuestionIndex,
+    setIsGameActive,
     totalQuestions,
     setTotalQuestions,
+    setQuestionStartAt,
     questionEndAt,
     setQuestionEndAt,
     setQuestionCountdown,
@@ -102,6 +104,8 @@ export default function ChallengeRoom({
     setReadyCount,
     autoStartCountdown,
     setAutoStartCountdown,
+    nftRewardRaw,
+    setNftRewardRaw,
   } = useGameState();
 
   const [chatMessages, setChatMessages] = useState<ChatMsg[]>([]);
@@ -110,7 +114,6 @@ export default function ChallengeRoom({
   const [startAt, setStartAt] = useState<number | null>(null);
   const [isLoadingRoom, setIsLoadingRoom] = useState(true);
   const [showConfetti, setShowConfetti] = useState(false);
-
 
   if (!roomId) {
     return (
@@ -191,11 +194,14 @@ export default function ChallengeRoom({
       case AUTO_START_TRIGGERED_TYPE:
         handleAutoStartTriggered(data.payload);
         break;
-      case "auto_countdown_started":
+      case AUTO_COUNTDOWN_STARTED:
         handleAutoCountdownStarted(data.payload);
         break;
-      case "auto_countdown_cancelled":
+      case AUTO_COUNTDOWN_CANCELLED:
         handleAutoCountdownCancelled(data.payload);
+        break;
+      case NFT_AWARDED:
+        handleNFTAwarded(data.payload);
         break;
       default:
         console.log("[WS] Unknown message type:", data.type);
@@ -207,7 +213,6 @@ export default function ChallengeRoom({
     setTotalQuestions(payload.totalQuestions);
     setStartAt(payload.startAt);
     setAutoStartCountdown(payload.countdownDuration);
-
 
     const sysMsg: ChatMsg = {
       sender: {
@@ -257,6 +262,36 @@ export default function ChallengeRoom({
     };
 
     setChatMessages((prev) => [...prev, sysMsg]);
+  }
+
+  function handleNFTAwarded(payload: any) {
+    try {
+      const bc = payload?.blockchain_nft;
+      const transfer = bc?.transfer_result;
+      const mint = bc?.mint_result;
+
+      if (!transfer && !mint) {
+        console.warn("[WARN] No transfer or mint info");
+        setNftRewardRaw(null);
+        return;
+      }
+
+      const reward: NftReward = {
+        blockId: transfer?.blockNumber ?? mint?.blockNumber ?? 0,
+        owner:
+          bc?.winner_wallet ??
+          transfer?.winner_address ??
+          payload?.winner_wallet ??
+          "",
+        uri: mint?.metadata_uri ?? "",
+        claimable: (transfer?.status ?? mint?.status) === 1,
+        image: null,
+      };
+
+      setNftRewardRaw(reward);
+    } catch (e) {
+      console.error("[ERROR] handleNFTAwarded:", e);
+    }
   }
 
   // Auto-start countdown timer
@@ -375,25 +410,6 @@ export default function ChallengeRoom({
   }
 
   function handleSyncGame(data: any) {
-    // Lấy ra các action từ store Zustand
-    const {
-      setGameStatus,
-      setPlayers,
-      setCurrentPlayer,
-      setGameSettings,
-      setTotalQuestions,
-      setQuestionIndex,
-      setCurrentQuestion,
-      setQuestionStartAt,
-      setQuestionEndAt,
-      setGameResults,
-      setWinnerWallet,
-      setIsGameActive,
-      setQuestionResult,
-      // Lấy state hiện tại để tìm ra người chơi hiện tại
-      currentUser,
-    } = useGameState.getState();
-
     console.log("[SYNC] Received game_sync payload:", data);
 
     // 1. Cập nhật trạng thái chung của game
@@ -765,7 +781,8 @@ export default function ChallengeRoom({
         const room: Room = await fetchRoomById(roomId);
 
         if (!room) {
-          throw new Error("Room data is null or undefined");
+          router.back();
+          return;
         }
 
         if (room.status === GameStatus.FINISHED) {
@@ -773,6 +790,9 @@ export default function ChallengeRoom({
           setGameResults(results.leaderboard || []);
           setWinnerWallet(results.winner?.walletId || null);
           setTotalQuestions(results.gameStats.totalQuestions);
+
+          const nft = await getRoomNFTInfo(roomId);
+          setNftRewardRaw(nft);
         }
 
         setCurrentRoom(room);
@@ -821,23 +841,6 @@ export default function ChallengeRoom({
     }
     setReadyCount(players.filter((p) => p.isReady).length);
   }, [players, currentUser]);
-
-  useEffect(() => {
-    console.log("[ROOM] Entering new room:", roomId);
-
-    // Reset all game-related state immediately
-    resetGameState();
-
-    // Reset local state
-    setChatMessages([]);
-    setIsRefreshingPlayers(false);
-    setCountdown(0);
-    setStartAt(null);
-    setGameSettings(DEFAULT_GAME_SETTINGS);
-    setIsLoadingRoom(true); // ✅ Set loading state to true when entering new room
-
-    console.log("[ROOM] Game state reset for room:", roomId);
-  }, [roomId, resetGameState]);
 
   // Question countdown timer
   useEffect(() => {
@@ -950,29 +953,29 @@ export default function ChallengeRoom({
   };
 
   // Sau khi setWinnerWallet trong game_ended hoặc khi gameStatus === 'finished' và winnerWallet có giá trị:
-  useEffect(() => {
-    if (gameStatus === GameStatus.FINISHED && winnerWallet) {
-      // Gọi backend để mint/transfer NFT cho winner
-      awardNFT(winnerWallet).then(() => {
-        toast({
-          title: "NFT Awarded!",
-          description: `NFT đã được mint/transfer cho winner: ${winnerWallet}`,
-        });
-      });
-      // .catch((err) => {
-      //   toast({
-      //     title: "NFT Award Error",
-      //     description: err.message,
-      //     variant: "destructive",
-      //   });
-      // });
-    }
-  }, [gameStatus, winnerWallet]);
-
+  // useEffect(() => {
+  //   if (gameStatus === GameStatus.FINISHED && winnerWallet) {
+  //     // Gọi backend để mint/transfer NFT cho winner
+  //     awardNFT(winnerWallet).then(() => {
+  //       toast({
+  //         title: "NFT Awarded!",
+  //         description: `NFT mint/transfer for winner: ${winnerWallet}`,
+  //       });
+  //     });
+  //     // .catch((err) => {
+  //     //   toast({
+  //     //     title: "NFT Award Error",
+  //     //     description: err.message,
+  //     //     variant: "destructive",
+  //     //   });
+  //     // });
+  //   }
+  // }, [gameStatus, winnerWallet]);
 
   // Handle leave room
   const handleLeaveRoom = useCallback(async () => {
     try {
+      setIsLoadingRoom(true);
       await leaveRoom({
         walletId: currentUser?.walletId,
         roomId,
@@ -1187,7 +1190,7 @@ export default function ChallengeRoom({
       <aside className="lg:col-span-1 space-y-6">
         {/* Blockchain Actions - chỉ hiển thị khi game kết thúc */}
         {gameStatus === GameStatus.FINISHED && isConnected && (
-          <div className="mt-6 px-4 py-2 rounded-lg bg-gradient-to-r from-neon-blue to-neon-purple text-white font-semibold shadow hover:scale-105 transition-all">
+          <div className="mt-6 px-4 py-6 rounded-lg text-white font-semibold shadow">
             <h3 className="text-xl font-orbitron font-bold text-neon-purple mb-6 text-center">
               Blockchain Actions
             </h3>
@@ -1220,4 +1223,3 @@ export default function ChallengeRoom({
     </div>
   );
 }
-

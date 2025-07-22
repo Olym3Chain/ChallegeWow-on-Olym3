@@ -1,6 +1,7 @@
 // src/lib/api.ts
 
 import { GameSettings } from "@/app/config/GameSettings";
+import { UserStats } from "@/types/schema";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9000/api";
 
@@ -143,6 +144,13 @@ export async function fetchUserByWallet(wallet_id: string) {
   return fetchData(`/users/by-wallet/${wallet_id}`);
 }
 
+// Lấy user stats
+export async function fetchUserStatsByWallet(
+  wallet_id: string
+): Promise<UserStats> {
+  return fetchData(`/users/${wallet_id}/stats`);
+}
+
 // Cập nhật username cho user
 export async function updateUser(
   walletId: string,
@@ -174,6 +182,10 @@ export async function awardNFT(to_address: string, token_id?: number) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ to_address, token_id }),
   });
+}
+
+export async function getRoomNFTInfo(room_id: string) {
+  return fetchData(`/nft/info/${room_id}`);
 }
 
 export async function fetchHistories(
@@ -237,13 +249,17 @@ export const aptosApi = {
 
   // Get account resources
   getAccountResources: async (address: string) => {
-    const response = await fetch(`${BASE_URL}/aptos/account/${address}/resources`);
+    const response = await fetch(
+      `${BASE_URL}/aptos/account/${address}/resources`
+    );
     return response.json();
   },
 
   // Get account summary
   getAccountSummary: async (address: string) => {
-    const response = await fetch(`${BASE_URL}/aptos/account/${address}/summary`);
+    const response = await fetch(
+      `${BASE_URL}/aptos/account/${address}/summary`
+    );
     return response.json();
   },
 
@@ -255,7 +271,9 @@ export const aptosApi = {
 
   // Validate address
   validateAddress: async (address: string) => {
-    const response = await fetch(`${BASE_URL}/aptos/validate-address/${address}`);
+    const response = await fetch(
+      `${BASE_URL}/aptos/validate-address/${address}`
+    );
     return response.json();
   },
 };
@@ -293,4 +311,4 @@ export const userPostApi = {
     if (!res.ok) throw new Error("Like post failed");
     return res.json();
   },
-}
+};

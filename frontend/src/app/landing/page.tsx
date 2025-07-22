@@ -8,16 +8,13 @@ import { motion } from "framer-motion";
 import {
   Brain,
   Gamepad2,
-  BookOpen,
   Clock,
   Shield,
   Trophy,
   Box,
-  ExternalLink,
   Github,
   MessageCircle,
   FileText,
-  Wallet,
   XIcon,
   Network,
 } from "lucide-react";
@@ -220,7 +217,6 @@ export default function Landing() {
               <Network className="w-6 h-6 mr-2" />
               Setup Network
             </Button>
-
           </motion.div>
 
           {/* Enhanced Stats */}

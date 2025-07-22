@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import os
 from typing import List
 from fastapi import WebSocket, WebSocketDisconnect
 from config.question_config import QUESTION_CONFIG
@@ -10,7 +11,7 @@ from models.chat_payload import ChatPayload
 from models.kick_player import KickPayload
 from models.player import Player
 from models.room import Room
-from config.constants import NEXT_QUESTION_DELAY, SEND_ONLY_REAMIN_TIME_IN_SECONDS
+from config.constants import MIN_PLAYER_TO_START, NEXT_QUESTION_DELAY, SEND_ONLY_REAMIN_TIME_IN_SECONDS
 from models.question import Question
 from services.aptos_service import AptosService
 from services.answer_service import AnswerService
@@ -27,7 +28,7 @@ from typing import Dict, List, Optional, Any
 
 class WebSocketController:
     def __init__(self, manager: WebSocketManager, player_service: PlayerService, room_service: RoomService,
-                 question_service: QuestionService, answer_service: AnswerService, user_repo: UserRepository, user_stats_repo: UserStatsRepository):
+                 question_service: QuestionService, answer_service: AnswerService, user_repo: UserRepository, user_stats_repo: UserStatsRepository, nft_service: BlockchainService, aptos_service: AptosService):
         self.manager = manager
         self.player_service = player_service
         self.room_service = room_service
@@ -35,8 +36,8 @@ class WebSocketController:
         self.answer_service = answer_service
         self.user_repo = user_repo
         self.user_stats_repo = user_stats_repo
-        self.nft_service = BlockchainService()  # Thêm NFT service
-        self.aptos_service = AptosService()  # Thêm Aptos service
+        self.nft_service = nft_service 
+        self.aptos_service = aptos_service  # Thêm Aptos service
         # Thêm tracking cho active tasks
         self.active_tasks = {}
         self.is_moving_to_next = set()
@@ -287,24 +288,7 @@ class WebSocketController:
         
         await self.user_stats_repo.recalculate_ranks()
         await self.room_service.save_room(room)
-
-        # Broadcast game end với leaderboard chi tiết
-        await self.manager.broadcast_to_room(room_id, {
-            "type": "game_ended",
-            "payload": {
-                "gameStats": game_stats,
-                "leaderboard": leaderboard,
-                "winner": next((p for p in leaderboard if p["isWinner"]), None),
-                "endedAt": int(game_end_time.timestamp() * 1000),
-                "roomId": room_id
-            }
-        })
-
-        # Broadcast clear local storage
-        await self.manager.broadcast_to_room(room_id, {
-            "type": "clear_local_storage"
-        })
-
+        
         if winner_wallet:
             try:
                 print(f"[NFT] Starting NFT minting process for winner {winner_wallet} in room {room_id}")
@@ -313,9 +297,10 @@ class WebSocketController:
                 blockchain_nft_result = await self._mint_and_transfer_nft(room_id, winner_wallet)
                 print(f"[BLOCKCHAIN_NFT] Result: {blockchain_nft_result}")
                 
+                # TODO: Open when use Aptos
                 # 2. Mint NFT từ AptosService (code mới)
-                aptos_nft_result = await self._mint_aptos_nft(room_id, winner_wallet)
-                print(f"[APTOS_NFT] Result: {aptos_nft_result}")
+                # aptos_nft_result = await self._mint_aptos_nft(room_id, winner_wallet)
+                # print(f"[APTOS_NFT] Result: {aptos_nft_result}")
                 
                 # 3. Broadcast kết quả tổng hợp
                 await self.manager.broadcast_to_room(room_id, {
@@ -324,8 +309,8 @@ class WebSocketController:
                         "winner_wallet": winner_wallet,
                         "room_id": room_id,
                         "blockchain_nft": blockchain_nft_result,
-                        "aptos_nft": aptos_nft_result,
-                        "message": "🎉 Congratulations! You've won NFTs from both blockchain and Aptos!"
+                        # "aptos_nft": aptos_nft_result,
+                        "message": "🎉 Congratulations! You've won NFTs!"
                     }
                 })
                 
@@ -341,6 +326,19 @@ class WebSocketController:
                         "message": "Sorry, there was an error minting your NFTs."
                     }
                 })
+
+
+        # Broadcast game end với leaderboard chi tiết
+        await self.manager.broadcast_to_room(room_id, {
+            "type": "game_ended",
+            "payload": {
+                "gameStats": game_stats,
+                "leaderboard": leaderboard,
+                "winner": next((p for p in leaderboard if p["isWinner"]), None),
+                "endedAt": int(game_end_time.timestamp() * 1000),
+                "roomId": room_id
+            }
+        })
 
         # Schedule room cleanup after some time
         async def cleanup_room():
@@ -818,6 +816,7 @@ class WebSocketController:
     async def _mint_and_transfer_nft(self, room_id: str, winner_wallet: str) -> dict:
         """Mint NFT cho deployer và transfer cho winner"""
         try:
+            OLYM3_EXPLORER_URL = os.getenv("OLYM3_EXPLORER_URL", "https://explorer1.olym3.xyz")
             # Generate default metadata_uri
             metadata_uri = f"https://challengewave.com/nft/{room_id}"
             
@@ -825,7 +824,6 @@ class WebSocketController:
             try:
                 # Thử mint NFT (có thể đã tồn tại)
                 mint_result = self.nft_service.mint_nft(room_id, metadata_uri)
-                # print(f"[NFT] Mint NFT result: {mint_result}")
             except Exception as mint_error:
                 # Nếu NFT đã tồn tại, bỏ qua lỗi và tiếp tục
                 if "NFT already exists" in str(mint_error):
@@ -838,6 +836,12 @@ class WebSocketController:
             score = 100
             zk_proof = "0x" + "00"*32
             transfer_result = self.nft_service.submit_game_result(room_id, winner_wallet, score, zk_proof)
+
+            # Thêm explorer_url nếu có transactionHash
+            if isinstance(mint_result, dict) and 'transactionHash' in mint_result:
+                mint_result['explorer_url'] = f"{OLYM3_EXPLORER_URL}/tx/{mint_result['transactionHash']}"
+            if isinstance(transfer_result, dict) and 'transactionHash' in transfer_result:
+                transfer_result['explorer_url'] = f"{OLYM3_EXPLORER_URL}/tx/{transfer_result['transactionHash']}"
             
             return {
                 "message": "NFT minted and transferred successfully",
@@ -849,7 +853,7 @@ class WebSocketController:
         except Exception as e:
             print(f"[NFT_ERROR] Error in _mint_and_transfer_nft: {str(e)}")
             raise e
-
+        
     # ✅ NEW: Mint NFT using AptosService
     async def _mint_aptos_nft(self, room_id: str, winner_wallet: str) -> dict:
         """Mint NFT cho winner sử dụng AptosService"""
@@ -1065,7 +1069,7 @@ class WebSocketController:
             print(f"[AUTO-START] Received auto_start_triggered signal for room {room_id}")
             
             # Kiểm tra điều kiện: có ít nhất 2 người chơi
-            if len(self.manager.get_all_player_sockets_in_room(room_id)) >= 2:
+            if len(self.manager.get_all_player_sockets_in_room(room_id)) >= MIN_PLAYER_TO_START:
                 # Bắt đầu auto-countdown
                 await self._start_auto_countdown(room_id)
             else:

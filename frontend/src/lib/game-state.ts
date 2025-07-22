@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import type { Player, Question, Room, User } from "@/types/schema";
+import type { NftReward, Player, Question, Room, User } from "@/types/schema";
 import { DEFAULT_GAME_SETTINGS, GameSettings } from "@/config/GameSettings";
 import { GameStatus } from "@/types/GameStatus";
 
@@ -51,6 +51,8 @@ interface GameState {
   // Game Results
   gameResults: any[];
   winnerWallet: string | null;
+  nftRewardRaw: NftReward | null;
+  setNftRewardRaw: (v: NftReward | null) => void;
 
   // ✅ NEW: Tie-break States
   isTieBreakActive: boolean;
@@ -138,6 +140,8 @@ export const useGameState = create<GameState>((set, get) => ({
   // Game Results
   gameResults: [],
   winnerWallet: null,
+  nftRewardRaw: null,
+  setNftRewardRaw: (v) => set({ nftRewardRaw: v }),
 
   // ✅ NEW: Tie-break States
   isTieBreakActive: false,
@@ -195,7 +199,8 @@ export const useGameState = create<GameState>((set, get) => ({
   setQuestionResult: (result) => set({ questionResult: result }),
   setGameResults: (results) => set({ gameResults: results }),
   setWinnerWallet: (wallet) => set({ winnerWallet: wallet }),
-  setAutoStartCountdown: (countdown: number) => set({ autoStartCountdown: countdown }),
+  setAutoStartCountdown: (countdown: number) =>
+    set({ autoStartCountdown: countdown }),
 
   // ✅ NEW: Tie-break Actions
   setIsTieBreakActive: (active) => set({ isTieBreakActive: active }),
@@ -242,4 +247,3 @@ export const useGameState = create<GameState>((set, get) => ({
     });
   },
 }));
-

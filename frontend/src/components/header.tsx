@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { Brain } from "lucide-react";
-import { ConnectButtonWithPetra } from "@/components/connect-button-with-petra";
+import { CustomConnectButton } from "./custom-connect-button";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 
 interface HeaderProps {
   showToFeed?: boolean;
@@ -12,7 +12,11 @@ interface HeaderProps {
   showConnectButton?: boolean;
 }
 
-export default function Header({ showToFeed, showToLanding, showConnectButton }: HeaderProps) {
+export default function Header({
+  showToFeed,
+  showToLanding,
+  showConnectButton,
+}: HeaderProps) {
   const router = useRouter();
   return (
     <nav className="fixed top-0 w-full z-50 glass-morphism border-b border-neon-blue/20">
@@ -34,10 +38,14 @@ export default function Header({ showToFeed, showToLanding, showConnectButton }:
               </h1>
             </Link>
             {showToFeed && (
-              <Button variant="ghost" onClick={() => router.push("/feed")}>Feed</Button>
+              <Button variant="ghost" onClick={() => router.push("/feed")}>
+                Feed
+              </Button>
             )}
             {showToLanding && (
-              <Button variant="ghost" onClick={() => router.push("/landing")}>Home</Button>
+              <Button variant="ghost" onClick={() => router.push("/landing")}>
+                Home
+              </Button>
             )}
           </motion.div>
           <motion.div
@@ -46,10 +54,11 @@ export default function Header({ showToFeed, showToLanding, showConnectButton }:
             transition={{ duration: 0.6, delay: 0.2 }}
             className="flex items-center gap-4"
           >
-            {showConnectButton && <ConnectButtonWithPetra />}
+            {/* // TODO: Change network if want */}
+            {showConnectButton && <ConnectButton />}
           </motion.div>
         </div>
       </div>
     </nav>
   );
-} 
+}

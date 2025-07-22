@@ -25,9 +25,10 @@ import { useGameState } from "@/lib/game-state";
 import { motion } from "framer-motion";
 import { toast } from "@/hooks/use-toast";
 import { updateGameSettings } from "@/lib/api";
-import { Dispatch, SetStateAction, useState } from "react";
+import { Dispatch, SetStateAction, useEffect, useState } from "react";
 import { KICK_PLAYER_TYPE } from "@/lib/constants";
 import type { ChatMessage } from "@/types/chat-message";
+import { GameStatus } from "@/types/GameStatus";
 
 interface GameWaitingProps {
   roomId: string;
@@ -44,12 +45,21 @@ export const GameWaiting = ({
   roomId,
   chatMessages,
   isRefreshingPlayers,
-  setIsRefreshingPlayers,
   handleToggleReady,
   handleSendMessage,
   handleStartGame,
   sendMessage,
 }: GameWaitingProps) => {
+  const [isStarting, setIsStarting] = useState(false);
+  const handleStartGameInternal = async () => {
+    try {
+      setIsStarting(true);
+      handleStartGame();
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   const {
     currentUser,
     players,
@@ -60,6 +70,12 @@ export const GameWaiting = ({
     setGameSettings,
     readyCount,
   } = useGameState();
+
+  useEffect(() => {
+    if (gameStatus !== GameStatus.WAITING) {
+      setIsStarting(false);
+    }
+  }, [gameStatus]);
 
   const [kickConfirmation, setKickConfirmation] = useState<{
     show: boolean;
@@ -141,10 +157,10 @@ export const GameWaiting = ({
                     key={player.walletId}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="flex items-center justify-between p-4 glass-morphism rounded-lg border border-gray-700/50"
+                    className="flex flex-col sm:flex-row sm:items-center justify-between p-4 glass-morphism rounded-lg border border-gray-700/50 gap-4"
                   >
                     {/* Left Side - Avatar + Info */}
-                    <div className="flex items-center space-x-4 flex-1">
+                    <div className="flex items-center space-x-4 flex-1 min-w-0">
                       {/* Avatar Container */}
                       <div className="relative flex-shrink-0">
                         <Avatar className="w-12 h-12 border-2 border-neon-blue/30">
@@ -156,7 +172,7 @@ export const GameWaiting = ({
                             {getCharacterIcon(player.character || "default")}
                           </AvatarFallback>
                         </Avatar>
-                        {/* Host Crown - Positioned better */}
+                        {/* Host Crown */}
                         {player.isHost && (
                           <div className="absolute -top-1 -right-1 w-6 h-6 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full flex items-center justify-center shadow-lg">
                             <Crown className="w-3 h-3 text-white" />
@@ -167,8 +183,8 @@ export const GameWaiting = ({
                       {/* Player Info */}
                       <div className="flex-1 min-w-0">
                         {/* Name and Badges Row */}
-                        <div className="flex items-center space-x-2 mb-1">
-                          <h3 className="font-semibold text-gray-100 truncate">
+                        <div className="flex flex-wrap items-center gap-2 mb-1">
+                          <h3 className="font-semibold text-gray-100 truncate max-w-[120px] sm:max-w-[180px]">
                             {player.username}
                           </h3>
                           <Badge
@@ -185,7 +201,6 @@ export const GameWaiting = ({
                               Ready
                             </Badge>
                           )}
-
                           {player.status === "disconnected" && (
                             <Badge
                               variant="secondary"
@@ -197,17 +212,17 @@ export const GameWaiting = ({
                         </div>
 
                         {/* Wallet ID */}
-                        <p className="text-sm text-gray-400 truncate mb-2">
+                        <p className="text-sm text-gray-400 truncate mb-2 max-w-[200px] sm:max-w-none">
                           {player.walletId}
                         </p>
 
                         {/* Stats Row */}
-                        <div className="flex items-center space-x-4">
-                          <span className="text-xs text-gray-500 flex items-center">
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
+                          <span className="flex items-center">
                             <Trophy className="w-3 h-3 mr-1 flex-shrink-0" />
                             {player.score} pts
                           </span>
-                          <span className="text-xs text-gray-500 flex items-center">
+                          <span className="flex items-center">
                             <Target className="w-3 h-3 mr-1 flex-shrink-0" />
                             {player.gamesWon} wins
                           </span>
@@ -216,8 +231,8 @@ export const GameWaiting = ({
                     </div>
 
                     {/* Right Side - Action Buttons */}
-                    <div className="flex items-center space-x-2 flex-shrink-0 ml-4">
-                      {/* Ready Button for non-host players */}
+                    <div className="flex items-center space-x-2 flex-shrink-0 sm:ml-4">
+                      {/* Ready Button */}
                       {!player.isHost &&
                         player.walletId === currentUser?.walletId && (
                           <Button
@@ -244,7 +259,7 @@ export const GameWaiting = ({
                           </Button>
                         )}
 
-                      {/* Kick Button for host */}
+                      {/* Kick Button */}
                       {currentPlayer?.isHost &&
                         currentUser?.walletId !== player.walletId && (
                           <Button
@@ -399,13 +414,25 @@ export const GameWaiting = ({
             </CardHeader>
             <CardContent className="space-y-3">
               <Button
-                onClick={handleStartGame}
+                onClick={handleStartGameInternal}
                 className="w-full bg-gradient-to-r from-neon-blue to-neon-purple hover:from-neon-blue/80 hover:to-neon-purple/80 animate-glow-pulse transition-all duration-200"
-                disabled={readyCount < 2 || gameStatus !== "waiting"}
+                disabled={
+                  readyCount < 2 || gameStatus !== "waiting" || isStarting
+                }
               >
-                <Play className="w-4 h-4 mr-2" />
-                Start Game
+                {isStarting ? (
+                  <>
+                    <Loader className="w-4 h-4 mr-2 animate-spin" />
+                    Starting...
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4 mr-2" />
+                    Start Game
+                  </>
+                )}
               </Button>
+
               <Button
                 variant="outline"
                 onClick={() => {
