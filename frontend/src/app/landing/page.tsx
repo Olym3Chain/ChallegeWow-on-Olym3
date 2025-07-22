@@ -376,13 +376,18 @@ export default function Landing() {
           Experience the gameplay, real-time quiz battles, and
           blockchain-powered rewards of Challenge Wave in this demo video.
         </p>
-        <div className="w-full max-w-2xl rounded-xl overflow-hidden shadow-lg bg-cyber-darker p-4">
-          <video controls className="w-full h-auto rounded-lg">
-            <source src="/Demo_video.mp4" type="video/mp4" />
-            Your browser does not support the video tag.
-          </video>
+        <div className="w-full max-w-2xl aspect-video rounded-xl overflow-hidden shadow-lg bg-cyber-darker p-2">
+          <iframe
+            className="w-full h-full rounded-lg"
+            src="https://www.youtube.com/embed/ZPqJcN_5IhE?si=fgDh68b_6AFR5pQ7"
+            title="Game Demo"
+            frameBorder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          ></iframe>
         </div>
       </div>
+
 
       {/* Footer */}
       <footer className="container mx-auto px-4 py-8 text-center text-gray-400">
